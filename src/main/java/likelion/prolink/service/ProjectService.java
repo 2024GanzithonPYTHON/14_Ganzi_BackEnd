@@ -4,16 +4,15 @@ import likelion.prolink.domain.Project;
 import likelion.prolink.dto.ProjectRequestDto;
 import likelion.prolink.dto.ProjectResponseDto;
 import likelion.prolink.repository.ProjectRepository;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
-
-    public ProjectService(ProjectRepository projectRepository) {
-        this.projectRepository = projectRepository;
-    }
 
     public ProjectResponseDto createProject(ProjectRequestDto requestDto) {
         Project project = new Project();
