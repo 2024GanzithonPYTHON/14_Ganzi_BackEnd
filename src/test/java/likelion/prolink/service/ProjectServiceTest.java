@@ -1,9 +1,6 @@
 package likelion.prolink.service;
 
 import likelion.prolink.domain.Category;
-import likelion.prolink.domain.Project;
-import likelion.prolink.dto.ProjectRequestDto;
-import likelion.prolink.dto.ProjectResponseDto;
 import likelion.prolink.repository.ProjectRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
