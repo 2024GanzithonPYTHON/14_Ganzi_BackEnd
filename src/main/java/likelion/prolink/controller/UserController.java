@@ -1,70 +1,73 @@
 package likelion.prolink.controller;
 
-import likelion.prolink.dto.UserDTO;
-import likelion.prolink.dto.UserUpdateDTO;
-import likelion.prolink.service.RegisterService;
+import com.sun.jdi.request.DuplicateRequestException;
+import likelion.prolink.domain.CustomUserDetails;
+import likelion.prolink.domain.dto.request.CheckRequest;
+import likelion.prolink.domain.dto.response.UserResponse;
+import likelion.prolink.domain.dto.request.UserUpdateRequest;
 import likelion.prolink.service.UserService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-// 유저 정보 가져오기, 수정하기
+@Slf4j
+@RequiredArgsConstructor
 @RestController
-@RequestMapping("/user")
+@CrossOrigin("*")
+@RequestMapping("/api/user")
 public class UserController {
-
     private final UserService userService;
-    private final RegisterService registerService;
 
-    public UserController(UserService userService, RegisterService registerService) {
-        this.userService = userService;
-        this.registerService = registerService;
-    }
-
-    // 유저 정보 가져오기
-    @GetMapping("/{loginId}")
-    public ResponseEntity<UserDTO> getUserInfo(@PathVariable String loginId) {
-        UserDTO userDTO = userService.getUserInfo(loginId);
-        if (userDTO != null) {
-            return ResponseEntity.ok(userDTO); // 유저가 있으면 200 OK와 함께 반환
-        } else {
-            return ResponseEntity.status(404).body(null); // 유저가 없으면 404 반환
+    @GetMapping()
+    public ResponseEntity<?> getUserInfo(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        try {
+            UserResponse userResponse = userService.getUserInfo(customUserDetails);
+            return ResponseEntity.ok(userResponse);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
-    // 닉네임 중복 확인
-    @GetMapping("/check-nickname")
-    public ResponseEntity<String> checkNickname(@RequestParam String nickName) {
-        if (registerService.isNickNameExist(nickName)) {
-            return ResponseEntity.status(409).body("Nickname already exists");
-        }
-        return ResponseEntity.ok("Nickname is available");
+    @DeleteMapping("/delete-account")
+    public ResponseEntity<?> deleteUser(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        userService.deleteUser(customUserDetails);
+        return ResponseEntity.ok("Account deleted successfully");
+
     }
 
-    // 유저 정보 수정 (nickName, category만 수정)
-    @PutMapping("/{loginId}/update")
-    public ResponseEntity<UserDTO> updateUserInfo(@PathVariable String loginId,
-                                                  @RequestBody UserUpdateDTO userUpdateDTO,
-                                                  @AuthenticationPrincipal UserDetails userDetails){
-
-        // 기존 닉네임과 수정하려는 닉네임이 다르면 중복 확인
-        if (!userUpdateDTO.getNickName().equals(userDetails.getUsername())) {
-            // 닉네임 중복 확인
-            if (registerService.isNickNameExist(userUpdateDTO.getNickName())) {
-                return ResponseEntity.status(409).body(null); // 닉네임 중복
-            }
-        }
-
-        // 유저 정보 수정 처리
-        UserDTO updatedUser = userService.updateUserInfo(loginId, userUpdateDTO);
-
-        if (updatedUser != null) {
-            // 수정된 유저 정보를 반환 (200 OK)
-            return ResponseEntity.ok(updatedUser);
-        } else {
-            // 유저가 존재하지 않으면 404 Not Found 반환
-            return ResponseEntity.notFound().build();
+    @PutMapping("/update")
+    public ResponseEntity<?> updateUser(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                   @RequestBody UserUpdateRequest userUpdateRequest){
+        try {
+            UserResponse userResponse = userService.updateUser(customUserDetails, userUpdateRequest);
+            return ResponseEntity.ok(userResponse);
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
+
+    @GetMapping("/check-nickName")
+    public ResponseEntity<?> checkNickName(@RequestBody CheckRequest checkRequest){
+        try {
+            String nickName = userService.checkName(checkRequest);
+            return ResponseEntity.ok(nickName);
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/check-loginId")
+    public ResponseEntity<?> checkId(@RequestBody CheckRequest checkRequest){
+        try {
+            String nickName = userService.checkId(checkRequest);
+            return ResponseEntity.ok(nickName);
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
 }

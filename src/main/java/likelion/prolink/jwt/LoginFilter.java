@@ -1,86 +1,73 @@
 package likelion.prolink.jwt;
 
-import likelion.prolink.dto.CustomUserDetails;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.json.JSONObject;
+import likelion.prolink.domain.CustomUserDetails;
+import likelion.prolink.domain.dto.request.LoginRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.Collection;
+import java.util.Iterator;
 
+@Slf4j
 public class LoginFilter extends UsernamePasswordAuthenticationFilter {
-
     private final AuthenticationManager authenticationManager;
-    private final JWTUtil jwtUtil;
+    private final JwtUtil jwtUtil;
 
-    public LoginFilter(AuthenticationManager authenticationManager, JWTUtil jwtUtil) {
-
+    public LoginFilter(AuthenticationManager authenticationManager, JwtUtil jwtUtil) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
+        setFilterProcessesUrl("/api/auth/login"); // 커스텀 로그인 엔드포인트 설정
     }
 
     @Override
     public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException {
-
-        String loginId = null;
-        String password = null;
-
-        // JSON 데이터를 읽고 파싱하는 코드
         try {
-            StringBuilder sb = new StringBuilder();
-            String line;
-            BufferedReader reader = request.getReader();
-            while ((line = reader.readLine()) != null) {
-                sb.append(line);
-            }
+            ObjectMapper objectMapper = new ObjectMapper();
+            LoginRequest loginRequest = objectMapper.readValue(request.getInputStream(), LoginRequest.class);
 
-            // 읽은 JSON 문자열을 JSONObject로 변환
-            String json = sb.toString();
-            JSONObject jsonObject = new JSONObject(json);
+            String loginId = loginRequest.getLoginId();
+            String password = loginRequest.getPassword();
 
-            // loginId와 password 추출
-            loginId = jsonObject.getString("loginId");
-            password = jsonObject.getString("password");
+            log.info("loginId: {}, password: {}", loginId, password);
 
+            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(loginId, password, null);
+            return authenticationManager.authenticate(authToken);
         } catch (IOException e) {
-            e.printStackTrace();  // 예외 처리
+            throw new RuntimeException(e);
         }
-
-        System.out.println("Received loginId: " + loginId);  // 로그인 ID 확인
-        System.out.println("Received password: " + password);  // 비밀번호 확인
-
-
-        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(loginId, password);
-
-        return authenticationManager.authenticate(authToken);
     }
 
-
-    // 로그인 성공시 실행하는 메소드 (여기서 JWT를 발급)
+    ///로그인 성공시 실행하는 메소드 (여기서 JWT를 발급하면 됨)
     @Override
-    protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Authentication authentication) {
-
+    protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Authentication authentication) throws IOException {
+        log.info("successfulAuthentication called");
         CustomUserDetails customUserDetails = (CustomUserDetails) authentication.getPrincipal();
-
-        String loginId = customUserDetails.getUsername();
-
-        String token = jwtUtil.createJwt(loginId, 432000L); // 토큰기간 5일
+        String loginId = customUserDetails.getLoginId();
+        Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
+        Iterator<? extends GrantedAuthority> iterator = authorities.iterator();
+        GrantedAuthority auth = iterator.next();
+        String role = auth.getAuthority();
+        String token = jwtUtil.createJwt(loginId);
 
         response.addHeader("Authorization", "Bearer " + token);
-
+        response.setContentType("application/json");
+        log.info("login success");
     }
 
-    // 로그인 실패시 실행하는 메소드
+    //로그인 실패시 실행하는 메소드
     @Override
     protected void unsuccessfulAuthentication(HttpServletRequest request, HttpServletResponse response, AuthenticationException failed) {
-
         response.setStatus(401);
+        log.info("login failed");
     }
-
 }

@@ -1,15 +1,13 @@
 package likelion.prolink.repository;
 
-import likelion.prolink.entity.UserEntity;
+import likelion.prolink.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-public interface UserRepository extends JpaRepository<UserEntity, Long> {
+public interface UserRepository extends JpaRepository<User, Long> {
 
-    boolean existsByLoginId(String loginId);
-    boolean existsByNickName(String nickName);
+    Optional<User> findByLoginId(String loginId);
+    Optional<User> findByNickName(String nickName);
 
-    Optional<UserEntity> findByLoginId(String loginId);
-    UserEntity findByNickName(String nickName);
 }
