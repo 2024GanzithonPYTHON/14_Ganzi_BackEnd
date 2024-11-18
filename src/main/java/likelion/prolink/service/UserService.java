@@ -1,70 +1,89 @@
 package likelion.prolink.service;
 
-import likelion.prolink.dto.UserDTO;
-import likelion.prolink.dto.UserUpdateDTO;
-import likelion.prolink.entity.UserEntity;
-import likelion.prolink.repository.UserRepository;
-import org.springframework.stereotype.Service;
+import com.sun.jdi.request.DuplicateRequestException;
+import likelion.prolink.domain.CustomUserDetails;
+import likelion.prolink.domain.LikeCategory;
+import likelion.prolink.domain.User;
+import likelion.prolink.domain.dto.request.CheckRequest;
+import likelion.prolink.domain.dto.response.UserResponse;
+import likelion.prolink.domain.dto.request.UserUpdateRequest;
 
+import likelion.prolink.repository.LikeCategoryRepository;
+import likelion.prolink.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
+    private final GlobalSevice globalSevice;
+    private final LikeCategoryRepository likeCategoryRepository;
 
-    public UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
+    public UserResponse getUserInfo(CustomUserDetails customUserDetails){
+        User user = globalSevice.findUser(customUserDetails);
+
+        List<String> categoryList = likeCategoryRepository.findByUserId(customUserDetails.getId())
+                .stream().map(LikeCategory::getCategory).collect(Collectors.toList());
+
+        return new UserResponse(
+                user.getId(), user.getLoginId(),
+                user.getUserName(), user.getNickName(),
+                user.getNumber(), categoryList,
+                user.getPoint());
     }
 
-    // loginId로 유저 정보 조회
-    public UserDTO getUserInfo(String loginId) {
-        Optional<UserEntity> userEntityOptional = userRepository.findByLoginId(loginId);
-
-        if (userEntityOptional.isPresent()) {
-            UserEntity userEntity = userEntityOptional.get();
-
-            // 필요한 정보만 담은 UserDTO 생성
-            return new UserDTO(
-                    userEntity.getId(),
-                    userEntity.getUserName(),
-                    userEntity.getNickName(),
-                    userEntity.getNumber(),
-                    userEntity.getCategory(),
-                    userEntity.getCredit(),
-                    userEntity.getTemper()
-            );
-        }
-
-        // 유저가 존재하지 않으면 null 반환 (혹은 예외 처리)
-        return null;
+    @Transactional
+    public void deleteUser(CustomUserDetails customUserDetails){
+        userRepository.deleteById(customUserDetails.getId());
     }
 
-    // 유저 정보 수정 (nickName, category만 수정)
-    public UserDTO updateUserInfo(String loginId, UserUpdateDTO userUpdateDTO) {
-        // 로그인 ID로 유저 조회
-        Optional<UserEntity> userEntityOptional = userRepository.findByLoginId(loginId);
+    @Transactional
+    public UserResponse updateUser(CustomUserDetails customUserDetails, UserUpdateRequest userUpdateRequest){
+        User user = globalSevice.findUser(customUserDetails);
 
-        // 유저가 존재하지 않으면 null 반환
-        if (!userEntityOptional.isPresent()) {
-            return null;
+        likeCategoryRepository.deleteAllByUserId(user.getId());
+
+        List<LikeCategory> categories = userUpdateRequest.getCategory().stream().map(cat -> new LikeCategory(user, cat)).collect(Collectors.toList());
+        likeCategoryRepository.saveAll(categories);
+
+        List<String> categoryList = categories.stream().map(LikeCategory::getCategory).collect(Collectors.toList());
+
+        return new UserResponse(
+                user.getId(), user.getLoginId(),
+                user.getUserName(), user.getNickName(),
+                user.getNumber(), categoryList,
+                user.getPoint());
+    }
+
+    public String checkName(CheckRequest checkRequest){
+        Optional<User> user = userRepository.findByNickName(checkRequest.getSentence());
+
+        if(user.isPresent()){
+            throw new DuplicateRequestException("이미 존재하는 닉네임입니다.");
         }
 
-        UserEntity userEntity = userEntityOptional.get();
+        return checkRequest.getSentence();
 
-        // 유저 정보 수정
-        if (userUpdateDTO.getNickName() != null) {
-            userEntity.setNickName(userUpdateDTO.getNickName());
+    }
+
+    public String checkId(CheckRequest checkRequest){
+        Optional<User> user = userRepository.findByLoginId(checkRequest.getSentence());
+
+        if(user.isPresent()){
+            throw new DuplicateRequestException("이미 존재하는 닉네임입니다.");
         }
-        if (userUpdateDTO.getCategory() != null) {
-            userEntity.setCategory(userUpdateDTO.getCategory());
-        }
 
-        // DB에 수정된 정보 저장
-        userRepository.save(userEntity);
+        return checkRequest.getSentence();
 
-        // 수정된 정보를 DTO로 변환하여 반환
-        return new UserDTO(userEntity);
     }
 
 }
+
+
