@@ -28,37 +28,43 @@ public class JwtFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, @Nullable HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
-        //request에서 Authorization 헤더를 찾음
-        String authorization= request.getHeader("Authorization");
+        String authorization = request.getHeader("Authorization");
+        String requestURI = request.getRequestURI();
 
-        //Authorization 헤더 검증
         if (authorization == null || !authorization.startsWith("Bearer ")) {
-            log.info("wrong token");
             filterChain.doFilter(request, response);
             return;
         }
-        log.info("authorization now");
 
-        //Bearer 부분 제거 후 순수 토큰만 획득
+        if (requestURI.startsWith("/api/auth/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String token = authorization.split(" ")[1];
-        //토큰 소멸 시간 검증
+
         if (jwtUtil.isExpired(token)) {
             log.info("token expired");
-            filterChain.doFilter(request, response);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // Return 401 for expired tokens
             return;
         }
 
-        //토큰에서 loginId 획득
-        String loginId = jwtUtil.getLoginId(token);
-        User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new RuntimeException("user not found"));
+        try {
+            String loginId = jwtUtil.getLoginId(token);
+            User user = userRepository.findByLoginId(loginId)
+                    .orElseThrow(() -> new RuntimeException("user not found"));
 
-        CustomUserDetails customUserDetails = new CustomUserDetails(user);
+            CustomUserDetails customUserDetails = new CustomUserDetails(user);
 
-        //스프링 시큐리티 인증 토큰 생성
-        Authentication accessToken = new UsernamePasswordAuthenticationToken(customUserDetails, null, customUserDetails.getAuthorities());
-        //세션에 사용자 등록
-        SecurityContextHolder.getContext().setAuthentication(accessToken);
+            Authentication accessToken = new UsernamePasswordAuthenticationToken(
+                    customUserDetails, null, customUserDetails.getAuthorities()
+            );
+            SecurityContextHolder.getContext().setAuthentication(accessToken);
+        } catch (Exception e) {
+            log.error("Token processing error: {}", e.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // Return 401 if user not found or token invalid
+            return;
+        }
 
         filterChain.doFilter(request, response);
     }
