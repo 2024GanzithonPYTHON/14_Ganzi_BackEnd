@@ -17,14 +17,14 @@ public class UserProject {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-
-
     @ManyToOne
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
     private String authority;
     private String careerUrl;
+
+    @Lob
     private String content;
     private Boolean isAccepted;
 

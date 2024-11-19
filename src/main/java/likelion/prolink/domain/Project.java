@@ -25,7 +25,10 @@ public class Project {
     private Long contributorNum;
     private String category;
     private String recruitmentPosition;
+
+    @Lob
     private String Content;
+
     private String link;
     private String deadLine;
 

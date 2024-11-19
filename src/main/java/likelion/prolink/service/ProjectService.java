@@ -58,6 +58,8 @@ public class ProjectService {
         userProject.setIsAccepted(true);
         userProjectRepository.save(userProject);
 
+
+
         return projectResponse(project);
     }
 
@@ -201,5 +203,9 @@ public class ProjectService {
         );
 
         return projectResponse;
+    }
+
+    public Project findById(Long projectId) {
+        return projectRepository.findById(projectId).orElse(null);
     }
 }
