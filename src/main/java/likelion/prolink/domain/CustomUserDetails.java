@@ -18,11 +18,10 @@ import java.util.Collection;
 public class CustomUserDetails implements UserDetails {
 
     private final User user;
-    private final Collection<? extends GrantedAuthority> authorities;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return authorities;
+        return null;
     }
 
     public Long getId() {
