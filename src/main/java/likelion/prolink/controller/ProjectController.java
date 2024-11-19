@@ -132,7 +132,7 @@ public class ProjectController {
     @GetMapping("/{projectId}/meeting")
     public ResponseEntity<List<MeetingResponse>> getAllMeetings(@PathVariable("projectId") Long projectId) {
         try {
-            List<MeetingResponse> meetings = meetingService.getMeetingsByProjectId(projectId);
+            List<MeetingResponse> meetings = meetingService.getAllMeetingsByProjectId(projectId);
             return ResponseEntity.ok(meetings);
         } catch (Exception e) {
             return ResponseEntity.status(400).body(null);

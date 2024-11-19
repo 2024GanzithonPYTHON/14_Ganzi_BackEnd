@@ -87,7 +87,7 @@ public class MeetingService {
         }
     }
 
-    public List<MeetingResponse> getMeetingsByProjectId(Long projectId) {
+    public List<MeetingResponse> getAllMeetingsByProjectId(Long projectId) {
         List<Meeting> meetings = meetingRepository.findAllByProjectId(projectId);
 
         return meetings.stream().map(meeting -> new MeetingResponse(
