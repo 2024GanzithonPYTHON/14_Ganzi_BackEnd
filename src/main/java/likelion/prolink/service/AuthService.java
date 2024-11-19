@@ -27,9 +27,10 @@ public class AuthService {
     @Transactional
     // 회원가입 처리
     public UserResponse joinProcess(SignupRequest signupRequest) {
-        if (userRepository.findByLoginId(signupRequest.getLoginId()).isPresent()) {
-            throw new DuplicateRequestException("이미 존재하는 유저입니다.");
+        if (userRepository.findByLoginId(signupRequest.getLoginId()).isPresent() || userRepository.findByNickName(signupRequest.getNickName()).isPresent()) {
+            throw new DuplicateRequestException("이미 존재하는 아이디 혹은 닉네임입니다.");
         }
+
             User user = new User();
             user.setLoginId(signupRequest.getLoginId());
             user.setPassword(bCryptPasswordEncoder.encode(signupRequest.getPassword()));

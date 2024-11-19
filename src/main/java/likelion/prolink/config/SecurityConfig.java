@@ -45,39 +45,20 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .httpBasic(AbstractHttpConfigurer::disable)
-                .formLogin(AbstractHttpConfigurer::disable)
-                .cors(httpSecurityCorsConfigurer ->
-                        httpSecurityCorsConfigurer.configurationSource(corsFilter()))
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(httpSecuritySessionManagementConfigurer -> httpSecuritySessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-
-        // authentication 관련 설정
+                .csrf(AbstractHttpConfigurer::disable)  // CSRF 보호 비활성화
+                .sessionManagement(
+                        sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(authorizeRequests ->
+                        authorizeRequests
+                                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                                .requestMatchers("/api/auth/**", "/index.html").permitAll()// 로그인, 회원가입 허용
+                                .requestMatchers("/api/user/check/**").permitAll()
+                                .anyRequest().authenticated() // 나머지 요청은 인증 필요
+                );
         http
-                .authorizeHttpRequests((auth) -> {
-                    // ALL 인증
-                    auth.requestMatchers("/api", "/api/auth/login", "/api/auth/signup").permitAll();
-
-                    auth.anyRequest().authenticated();
-                });
-
-        http
-                .addFilterBefore(new JwtFilter(jwtUtil, userRepository), LoginFilter.class)
-                .addFilterBefore(new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtFilter(jwtUtil, userRepository), UsernamePasswordAuthenticationFilter.class) // JwtFilter는 모든 요청에서 JWT 검증
+                .addFilterBefore(new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil), UsernamePasswordAuthenticationFilter.class); // LoginFilter는 로그인 요청만 처리
 
         return http.build();
-    }
-
-    @Bean
-    public CorsConfigurationSource corsFilter(){
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
-        config.addAllowedMethod("*");
-        config.addAllowedHeader("*");
-        config.addExposedHeader("Authorization");
-        config.setAllowCredentials(true);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
     }
 }
