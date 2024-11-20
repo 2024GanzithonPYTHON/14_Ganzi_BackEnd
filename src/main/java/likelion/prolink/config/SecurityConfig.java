@@ -52,7 +52,7 @@ public class SecurityConfig {
                         authorizeRequests
                                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                                 .requestMatchers("/api/auth/**", "/index.html").permitAll()// 로그인, 회원가입 허용
-                                .requestMatchers("/api/user/check/**").permitAll()
+                                .requestMatchers("/api/all/**").permitAll()
                                 .anyRequest().authenticated() // 나머지 요청은 인증 필요
                 );
         http

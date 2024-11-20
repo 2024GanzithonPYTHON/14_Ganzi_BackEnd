@@ -2,16 +2,21 @@ package likelion.prolink.domain;
 
 
 import jakarta.persistence.*;
+import likelion.prolink.listener.ProjectListener;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Date;
 
 
 @Entity @Getter @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@EntityListeners(ProjectListener.class)
 public class Project {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,9 +30,12 @@ public class Project {
     private Long contributorNum;
     private String category;
     private String recruitmentPosition;
-    private String Content;
+    private String content;
     private String link;
-    private String deadLine;
+    private LocalDate deadLine;
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)

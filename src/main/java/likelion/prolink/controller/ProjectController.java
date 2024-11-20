@@ -1,13 +1,14 @@
 package likelion.prolink.controller;
 
 
+import com.sun.jdi.request.DuplicateRequestException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import likelion.prolink.domain.CustomUserDetails;
 import likelion.prolink.domain.UserProject;
 import likelion.prolink.domain.dto.request.ProjectRequest;
 import likelion.prolink.domain.dto.request.RegisterRequest;
-import likelion.prolink.domain.dto.response.ProjectAllResponse;
-import likelion.prolink.domain.dto.response.ProjectResponse;
-import likelion.prolink.domain.dto.response.UserProjectResponse;
+import likelion.prolink.domain.dto.response.*;
 import likelion.prolink.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.webjars.NotFoundException;
 
 import java.util.List;
 
@@ -22,21 +24,30 @@ import java.util.List;
 @RequiredArgsConstructor
 @RestController
 @CrossOrigin("*")
-@RequestMapping("/api/project")
+@RequestMapping("/api")
+@Tag(name = "프로젝트 관련 API")
 public class ProjectController {
     private final ProjectService projectService;
 
-    @PostMapping()
+    //프로젝트 생성
+    @PostMapping("/project")
+    @Operation(summary = "프로젝트 생성 API")
     public ResponseEntity<?> createProject(@AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody ProjectRequest projectRequest){
         try {
             ProjectResponse projectResponse = projectService.createProject(customUserDetails, projectRequest);
             return ResponseEntity.ok(projectResponse);
-        }catch (Exception e){
+        }catch (NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch (RuntimeException e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    @GetMapping("/all")
+    // 전체 프로젝트 조회
+    @GetMapping("/all/project")
+    @Operation(summary = "전체 프로젝트 조회 API - 토큰 X")
     public ResponseEntity<?> getAllProject(){
         try {
             List<ProjectAllResponse> projectList = projectService.getAll();
@@ -46,7 +57,9 @@ public class ProjectController {
         }
     }
 
-    @GetMapping("/category")
+    // 카테고리별 프로젝트 조회
+    @GetMapping("/all/project/category")
+    @Operation(summary = "카테고리별 프로젝트 조회 API - 토큰 X")
     public ResponseEntity<?> getCatProject(@RequestParam(name = "category") String cate){
         try {
             List<ProjectAllResponse> projectList = projectService.getCatProject(cate);
@@ -56,63 +69,184 @@ public class ProjectController {
         }
     }
 
-    @GetMapping("/{projectId}")
+    //프로젝트 상세 조회
+    @GetMapping("/project/{projectId}")
+    @Operation(summary = "프로젝트 상세 조회 API")
     public ResponseEntity<?> getCatProjecct(@PathVariable Long projectId,
                                             @AuthenticationPrincipal CustomUserDetails customUserDetails){
         try {
             ProjectResponse project = projectService.getProject(customUserDetails, projectId);
             return ResponseEntity.ok(project);
+        }catch (NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
-    @PostMapping("/{projectId}/apply")
+    //프로젝트 참가 신청
+    @PostMapping("/project/{projectId}/apply")
+    @Operation(summary = "프로젝트 참가 신청 API")
     public ResponseEntity<?> registerProject(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                              @RequestBody RegisterRequest registerRequest,
                                              @PathVariable Long projectId){
         try {
             UserProjectResponse userProjectResponse = projectService.registerProject(customUserDetails, registerRequest, projectId);
             return ResponseEntity.ok(userProjectResponse);
-        }catch (Exception e){
+        }catch (NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch (DuplicateRequestException e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("이미 프로젝트에 속해있습니다.");
+        }catch (RuntimeException e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
 
     }
-
-    @GetMapping("/{projectId}/member")
-    public ResponseEntity<?> getMember(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+    //프로젝트 신청 리스트 + 프로젝트 간단 소개
+    @GetMapping("/project/{projectId}/manage")
+    @Operation(summary = "프로젝트 신청 리스트 및 프로젝트 간단 소개 API - 멤버 관리")
+    public ResponseEntity<?> getManagePage(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                              @PathVariable Long projectId){
         try {
-            List<UserProjectResponse> userProjectResponse = projectService.getMember(customUserDetails, projectId);
+            MemberManageResponse userProjectResponse = projectService.getManage(customUserDetails, projectId);
             return ResponseEntity.ok(userProjectResponse);
+        }catch (NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
 
     }
 
-    @PutMapping("/{projectId}/accept")
+    //프로젝트 멤버 신청 수락
+    @PutMapping("/project/{projectId}/{nickName}/accept")
+    @Operation(summary = "프로젝트 신청 수락 API - 멤버 관리")
     public ResponseEntity<?> acceptMember(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                           @RequestParam(name = "nickName") String nickName,
                                           @PathVariable Long projectId){
         try {
             UserProjectResponse userProjectResponse = projectService.acceptMember(customUserDetails, nickName, projectId);
             return ResponseEntity.ok(userProjectResponse);
+        }catch (NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body("권한이 없습니다.");
+        }catch (RuntimeException e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("정원이 마감되었습니다.");
         }catch (Exception e){
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
-
-    @DeleteMapping("/{projectId}/accept")
+    //프로젝트 멤버 거절 및 추방
+    @DeleteMapping("/project/{projectId}/{nickName}/delete")
+    @Operation(summary = "프로젝트 신청 거절/팀원 추방 API - 멤버 관리")
     public ResponseEntity<?>  deleteMember(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                           @RequestParam(name = "nickName") String nickName,
                                           @PathVariable Long projectId){
         try {
             projectService.deleteMember(customUserDetails, nickName, projectId);
             return ResponseEntity.ok("삭제되었습니다.");
+        }catch (NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body("권한이 없습니다.");
+        }catch (RuntimeException e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("정원이 마감되었습니다.");
         }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    //다른 사람이 참여중인 프로젝트 조회
+    @GetMapping("/project/{nickName}/active")
+    @Operation(summary = "다른 사람이 참여중인 프로젝트 조회 API - 프로젝트 관리")
+    public ResponseEntity<?> getOtherActive(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                           @PathVariable String nickName){
+        try {
+            List<ActiveProjectResponse> activeProjectResponses = projectService.getUserActiveProject(customUserDetails, nickName);
+            return ResponseEntity.ok(activeProjectResponses);
+        }catch(NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch(Exception e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
+    //내가 참가중인 프로젝트 조회
+    @GetMapping("/project/active")
+    @Operation(summary = "내가 참여중인 프로젝트 조회 API - 프로젝트 관리")
+    public ResponseEntity<?> getUserActive(@AuthenticationPrincipal CustomUserDetails customUserDetails){
+        try {
+            String nickName = customUserDetails.getUser().getNickName();
+            List<ActiveProjectResponse> activeProjectResponses = projectService.getUserActiveProject(customUserDetails, nickName);
+            return ResponseEntity.ok(activeProjectResponses);
+        }catch(NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch(Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    //다른 사람이 참여했던 프로젝트 조회
+    @GetMapping("/project/{nickName}/end")
+    @Operation(summary = "다른 사람이 참여했던 프로젝트 조회 API - 프로젝트 관리")
+    public ResponseEntity<?> getOtherNotActive(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                           @PathVariable String nickName){
+        try {
+            List<ActiveProjectResponse> activeProjectResponses = projectService.getUserNonActiveProject(customUserDetails, nickName);
+            return ResponseEntity.ok(activeProjectResponses);
+        }catch(NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch(Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+    //내가 참가했던 프로젝트 조회
+    @GetMapping("/project/end")
+    @Operation(summary = "내가 참가했던 프로젝트 조회 API - 프로젝트 관리")
+    public ResponseEntity<?> getUserNotActive(@AuthenticationPrincipal CustomUserDetails customUserDetails){
+        try {
+            String nickName = customUserDetails.getUser().getNickName();
+            List<ActiveProjectResponse> activeProjectResponses = projectService.getUserNonActiveProject(customUserDetails, nickName);
+            return ResponseEntity.ok(activeProjectResponses);
+        }catch(NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch(Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    //팀원만 조회
+    @GetMapping("/project/{projectId}/member")
+    @Operation(summary = "프로젝트 참여중인 팀원만 조회 API - 멤버 관리")
+    public ResponseEntity<?> getMember(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                       @PathVariable Long projectId){
+        try {
+            MemberManageResponse userProjectResponse = projectService.getMember(customUserDetails, projectId);
+            return ResponseEntity.ok(userProjectResponse);
+        }catch (NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+
+    }
+
+    @PutMapping("/project/{projectId}/{nickName}/owner")
+    @Operation(summary = "팀장 변경 API - 멤버 관리")
+    public ResponseEntity<?> changeLeader(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                         @PathVariable Long projectId,
+                                         @PathVariable String nickName){
+        try {
+            UserProjectResponse userProjectResponse = projectService.changeLeader(customUserDetails, projectId, nickName);
+            return ResponseEntity.ok(userProjectResponse);
+        }catch (NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+
+    }
+
 }

@@ -80,26 +80,20 @@ public class UserService {
                 user.getPoint());
     }
 
-    public String checkName(CheckRequest checkRequest){
+    public void checkName(CheckRequest checkRequest){
         Optional<User> user = userRepository.findByNickName(checkRequest.getSentence());
 
         if(user.isPresent()){
             throw new DuplicateRequestException("이미 존재하는 닉네임입니다.");
         }
-
-        return checkRequest.getSentence();
-
     }
 
-    public String checkId(CheckRequest checkRequest){
+    public void checkId(CheckRequest checkRequest){
         Optional<User> user = userRepository.findByLoginId(checkRequest.getSentence());
 
         if(user.isPresent()){
             throw new DuplicateRequestException("이미 존재하는 아이디입니다.");
         }
-
-        return checkRequest.getSentence();
-
     }
 
 }
