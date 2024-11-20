@@ -1,14 +1,13 @@
 package likelion.prolink.service;
 
+import com.sun.jdi.request.DuplicateRequestException;
 import likelion.prolink.domain.CustomUserDetails;
 import likelion.prolink.domain.Project;
 import likelion.prolink.domain.User;
 import likelion.prolink.domain.UserProject;
 import likelion.prolink.domain.dto.request.ProjectRequest;
 import likelion.prolink.domain.dto.request.RegisterRequest;
-import likelion.prolink.domain.dto.response.ProjectAllResponse;
-import likelion.prolink.domain.dto.response.ProjectResponse;
-import likelion.prolink.domain.dto.response.UserProjectResponse;
+import likelion.prolink.domain.dto.response.*;
 import likelion.prolink.repository.ProjectRepository;
 import likelion.prolink.repository.UserProjectRepository;
 import likelion.prolink.repository.UserRepository;
@@ -17,6 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.webjars.NotFoundException;
 
+import java.nio.file.AccessDeniedException;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,8 +31,12 @@ public class ProjectService {
     private final UserProjectRepository userProjectRepository;
     private final UserRepository userRepository;
 
+    @Transactional
     public ProjectResponse createProject(CustomUserDetails customUserDetails, ProjectRequest projectRequest){
         User user = globalSevice.findUser(customUserDetails);
+        if(user.getPoint() < 5){
+            throw new RuntimeException("포인트가 부족합니다.");
+        }
 
         Project project = new Project();
         project.setProjectName(projectRequest.getProjectName());
@@ -38,6 +45,7 @@ public class ProjectService {
         project.setTitle(projectRequest.getTitle());
         project.setContributorNum(projectRequest.getContributorNum());
         project.setUser(user);
+        project.setLink(projectRequest.getLink());
         project.setDeadLine(projectRequest.getDeadLine());
         project.setRecruitmentPosition(projectRequest.getRecruitmentPosition());
         project.setCategory(projectRequest.getCategory());
@@ -89,10 +97,23 @@ public class ProjectService {
         return projectResponse(project);
     }
 
+    @Transactional
     public UserProjectResponse registerProject(CustomUserDetails customUserDetails, RegisterRequest registerRequest, Long projectId ){
         User user = globalSevice.findUser(customUserDetails);
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(()-> new NotFoundException("해당 프로젝트가 존재하지 않습니다"));
+
+        if(userProjectRepository.findByUser(user).isPresent()){
+            throw new DuplicateRequestException("이미 프로젝트에 속해있습니다.");
+        }
+
+        if(project.getIsRecruit() == false){
+            throw new RuntimeException("이미 모집 마감되었습니다.");
+        }
+
+        if(user.getPoint() < 5){
+            throw new RuntimeException("포인트가 부족합니다.");
+        }
 
         UserProject userProject = new UserProject();
         userProject.setUser(user); userProject.setProject(project);
@@ -107,7 +128,7 @@ public class ProjectService {
                 userProject.getContent(), userProject.getIsAccepted());
     }
 
-    public List<UserProjectResponse> getMember(CustomUserDetails customUserDetails, Long projectId){
+    public MemberManageResponse getManage(CustomUserDetails customUserDetails, Long projectId){
         globalSevice.findUser(customUserDetails);
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(()-> new NotFoundException("해당 프로젝트가 존재하지 않습니다"));
@@ -116,7 +137,7 @@ public class ProjectService {
                         userProject.getAuthority(), userProject.getCareerUrl(),
                         userProject.getContent(), userProject.getIsAccepted())).collect(Collectors.toList());
 
-        return userProjectResponses;
+        return new MemberManageResponse(userProjectResponses,project.getProjectName(), project.getTitle(), project.getUser().getNickName());
     }
 
     @Transactional
@@ -133,6 +154,10 @@ public class ProjectService {
             throw new IllegalArgumentException("수정 권한이 없습니다");
         }
 
+        if (getNum(projectId) == project.getContributorNum()){
+            throw new RuntimeException("정원 마감되었습니다.");
+        }
+
         User member = userRepository.findByNickName(nickName)
                 .orElseThrow(() -> new NotFoundException("해당 유저가 존재하지 않습니다."));
 
@@ -142,6 +167,12 @@ public class ProjectService {
         accept.setIsAccepted(true);
         member.setPoint(member.getPoint() - 5);
         userProjectRepository.save(accept);
+        userRepository.save(member);
+
+        if (getNum(projectId) == project.getContributorNum()){
+            project.setIsRecruit(false);
+            projectRepository.save(project);
+        }
 
         return new UserProjectResponse(userProject.getUser().getNickName(),userProject.getProject().getId(),
                 userProject.getAuthority(), userProject.getCareerUrl(),
@@ -169,6 +200,77 @@ public class ProjectService {
                 .orElseThrow(() -> new NotFoundException("해당 프로젝트에 존재하지 않습니다."));
 
         userProjectRepository.delete(accept);
+
+        if (getNum(projectId) < project.getContributorNum()){
+            project.setIsRecruit(true);
+            projectRepository.save(project);
+        }
+    }
+
+    public List<ActiveProjectResponse> getUserActiveProject(CustomUserDetails customUserDetails,
+                                                            String nickName){
+        globalSevice.findUser(customUserDetails);
+        User user = userRepository.findByNickName(nickName).orElseThrow(()->new NotFoundException("해당 유저를 찾을 수 없습니다."));
+        return userProjectRepository.findByUserAndIsAcceptedTrue(user)
+                .stream()
+                .filter(userProject -> userProject.getProject().getIsActive())
+                .map(userProject -> new ActiveProjectResponse(userProject.getProject().getId(),
+                        nickName, userProject.getProject().getProjectName(), userProject.getProject().getTitle(),
+                        userProject.getProject().getIsActive(),userProject.getProject().getContent()))
+                .collect(Collectors.toList());
+    }
+
+    public List<ActiveProjectResponse> getUserNonActiveProject(CustomUserDetails customUserDetails,
+                                                            String nickName){
+        globalSevice.findUser(customUserDetails);
+        User user = userRepository.findByNickName(nickName).orElseThrow(()->new NotFoundException("해당 유저를 찾을 수 없습니다."));
+        return userProjectRepository.findByUserAndIsAcceptedTrue(user)
+                .stream()
+                .filter(userProject -> !userProject.getProject().getIsActive())
+                .map(userProject -> new ActiveProjectResponse(userProject.getProject().getId(),
+                        nickName, userProject.getProject().getProjectName(), userProject.getProject().getTitle(),
+                        userProject.getProject().getIsActive(),userProject.getProject().getContent()))
+                .collect(Collectors.toList());
+    }
+
+    public MemberManageResponse getMember(CustomUserDetails customUserDetails, Long projectId){
+        globalSevice.findUser(customUserDetails);
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(()-> new NotFoundException("해당 프로젝트가 존재하지 않습니다"));
+        List<UserProjectResponse> userProjectResponses = userProjectRepository.findByProjectAndIsAcceptedTrue(project)
+                .stream().map(userProject -> new UserProjectResponse(userProject.getUser().getNickName(),userProject.getProject().getId(),
+                        userProject.getAuthority(), userProject.getCareerUrl(),
+                        userProject.getContent(), userProject.getIsAccepted())).collect(Collectors.toList());
+
+        return new MemberManageResponse(userProjectResponses,project.getProjectName(), project.getTitle(), project.getUser().getNickName());
+    }
+    public UserProjectResponse changeLeader(CustomUserDetails customUserDetails, Long projectId, String nickName){
+        User user = globalSevice.findUser(customUserDetails);
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(()-> new NotFoundException("해당 프로젝트가 존재하지 않습니다"));
+
+        UserProject leaderProject = userProjectRepository.findByUserAndProject(user,project)
+                .orElseThrow(()-> new NotFoundException("해당 프로젝트에 속해 있지 않습니다"));
+
+        if(!leaderProject.getAuthority().equals("팀장")){
+            throw new IllegalArgumentException("팀장 변경 권한이 없습니다.");
+        }
+
+        User member = userRepository.findByNickName(nickName)
+                .orElseThrow(()-> new NotFoundException("존재하지 않는 멤버입니다."));
+
+        UserProject newLeaderProject = userProjectRepository.findByUserAndProject(member,project)
+                .orElseThrow(()-> new NotFoundException("해당 프로젝트에 속해 있지 않습니다"));
+
+        leaderProject.setAuthority("팀원");
+        newLeaderProject.setAuthority("팀장");
+
+        userProjectRepository.save(leaderProject);
+        userProjectRepository.save(newLeaderProject);
+
+        return new UserProjectResponse(newLeaderProject.getUser().getNickName(),newLeaderProject.getProject().getId(),
+                newLeaderProject.getAuthority(), newLeaderProject.getCareerUrl(),
+                newLeaderProject.getContent(), newLeaderProject.getIsAccepted());
     }
 
 

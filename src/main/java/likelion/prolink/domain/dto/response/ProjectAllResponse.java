@@ -4,6 +4,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
+
 @Getter @Setter
 @NoArgsConstructor
 public class ProjectAllResponse {
@@ -17,9 +22,9 @@ public class ProjectAllResponse {
     private String category;
     private String recruitmentPosition;
     private String content;
-    private String deadLine;
+    private LocalDate deadLine;
 
-    public ProjectAllResponse(Long projectId, String nickName, String projectName, String title, Boolean isRecruit, Long contributorNum,Long isAcceptedNum, String category, String recruitmentPosition, String content, String deadLine) {
+    public ProjectAllResponse(Long projectId, String nickName, String projectName, String title, Boolean isRecruit, Long contributorNum,Long isAcceptedNum, String category, String recruitmentPosition, String content, LocalDate deadLine) {
         this.projectId = projectId;
         this.nickName = nickName;
         this.projectName = projectName;

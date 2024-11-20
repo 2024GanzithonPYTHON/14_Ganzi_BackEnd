@@ -4,13 +4,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 // 일정 저장
 @Getter
 @Setter
 @NoArgsConstructor
 public class TaskRequest {
     private String description;
-    private String start;
-    private String end;
-    private Boolean attainment;
+    private LocalDate start;
+    private LocalDate end;
 }

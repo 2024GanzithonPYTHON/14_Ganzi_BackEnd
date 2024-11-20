@@ -1,5 +1,7 @@
 package likelion.prolink.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import likelion.prolink.domain.CustomUserDetails;
 import likelion.prolink.domain.dto.request.TaskRequest;
 import likelion.prolink.domain.dto.response.TaskResponse;
@@ -17,18 +19,20 @@ import java.util.List;
 @RequiredArgsConstructor
 @RestController
 @CrossOrigin("*")
-@RequestMapping("/api/project/{projectId}/task")
+@RequestMapping("/api/project")
+@Tag(name = "일정 관련 API")
 public class TaskController {
 
     private final TaskService taskService;
 
     // 일정 저장
-    @PostMapping
+    @PostMapping("/{projectId}/task")
+    @Operation(summary = "일정 저장 API - 일정 관리")
     public ResponseEntity<?> createTask(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                         @PathVariable Long projectId,
                                         @RequestBody TaskRequest taskRequest) {
         try {
-            TaskResponse taskResponse = taskService.createTask(customUserDetails.getUser(), projectId, taskRequest);
+            TaskResponse taskResponse = taskService.createTask(customUserDetails, projectId, taskRequest);
             return ResponseEntity.status(HttpStatus.CREATED).body(taskResponse);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -36,11 +40,12 @@ public class TaskController {
     }
 
     // 전체 일정 조회
-    @GetMapping
+    @GetMapping("/{projectId}/task")
+    @Operation(summary = "전체 일정 조회 API - 일정 관리")
     public ResponseEntity<?> getTasks(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                       @PathVariable Long projectId) {
         try {
-            List<TaskResponse> tasks = taskService.getTasks(customUserDetails.getUser(), projectId);
+            List<TaskResponse> tasks = taskService.getTasks(customUserDetails, projectId);
             return ResponseEntity.ok(tasks);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -48,13 +53,27 @@ public class TaskController {
     }
 
     // 일정 수정
-    @PutMapping
+    @PutMapping("/{projectId}/task/{taskId}")
+    @Operation(summary = "특정 일정 수정 API - 일정 관리")
     public ResponseEntity<?> updateTask(@AuthenticationPrincipal CustomUserDetails customUserDetails,
-                                        @PathVariable Long projectId,
-                                        @PathVariable Long taskId,
+                                        @PathVariable("projectId") Long projectId,
+                                        @PathVariable("taskId") Long taskId,
                                         @RequestBody TaskRequest taskRequest) {
         try {
-            TaskResponse taskResponse = taskService.updateTask(customUserDetails.getUser(), taskId, taskRequest);
+            TaskResponse taskResponse = taskService.updateTask(customUserDetails, projectId, taskId, taskRequest);
+            return ResponseEntity.ok(taskResponse);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{projectId}/task/{taskId}/att")
+    @Operation(summary = "일정 완수 ON/OFF API - 일정 관리")
+    public ResponseEntity<?> toggleTask(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                        @PathVariable("projectId") Long projectId,
+                                        @PathVariable("taskId") Long taskId) {
+        try {
+            TaskResponse taskResponse = taskService.toggleTask(customUserDetails, projectId, taskId);
             return ResponseEntity.ok(taskResponse);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());

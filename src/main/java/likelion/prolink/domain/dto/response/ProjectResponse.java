@@ -3,6 +3,9 @@ package likelion.prolink.domain.dto.response;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.cglib.core.Local;
+
+import java.time.LocalDate;
 
 @Getter @Setter
 @NoArgsConstructor
@@ -19,10 +22,10 @@ public class ProjectResponse {
     private String category;
     private String recruitmentPosition;
     private String content;
-    private String deadLine;
+    private LocalDate deadLine;
     private String link;
 
-    public ProjectResponse(Long id,String nickName, Long userId, String projectName, String title, String grade, Boolean isRecruit, Boolean isActive, Long contributorNum, String category, String recruitmentPosition, String content, String deadLine, String link) {
+    public ProjectResponse(Long id, String nickName, Long userId, String projectName, String title, String grade, Boolean isRecruit, Boolean isActive, Long contributorNum, String category, String recruitmentPosition, String content, LocalDate deadLine, String link) {
         this.id = id;
         this.nickName = nickName;
         this.userId = userId;

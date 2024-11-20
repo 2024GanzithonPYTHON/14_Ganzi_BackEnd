@@ -18,4 +18,9 @@ public interface UserProjectRepository extends JpaRepository<UserProject, Long> 
 
     // 사용자가 참여한 특정 프로젝트를 찾는 쿼리
     Optional<UserProject> findByUserAndProject(User user, Project project);
+
+    List<UserProject> findByUserAndIsAcceptedTrue(User user);
+    List<UserProject> findByProjectAndIsAcceptedTrue(Project project);
+
+    Optional<UserProject> findByUserAndProjectAndIsAcceptedTrue(User user, Project project);
 }

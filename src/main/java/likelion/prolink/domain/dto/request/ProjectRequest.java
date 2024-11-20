@@ -2,6 +2,9 @@ package likelion.prolink.domain.dto.request;
 
 import lombok.Getter;
 
+import java.time.LocalDate;
+import java.util.Date;
+
 @Getter
 public class ProjectRequest {
     private String projectName;
@@ -10,7 +13,7 @@ public class ProjectRequest {
     private Long contributorNum;
     private String category;
     private String recruitmentPosition;
-    private String Content;
-    private String deadLine;
+    private String content;
+    private LocalDate deadLine;
     private String link;
 }

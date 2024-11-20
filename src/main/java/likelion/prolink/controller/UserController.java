@@ -1,6 +1,8 @@
 package likelion.prolink.controller;
 
 import com.sun.jdi.request.DuplicateRequestException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import likelion.prolink.domain.CustomUserDetails;
 import likelion.prolink.domain.dto.request.CheckRequest;
 import likelion.prolink.domain.dto.request.PasswordRequest;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @CrossOrigin("*")
 @RequestMapping("/api/user")
+@Tag(name = "유저 관련 API")
 public class UserController {
     private final UserService userService;
 
@@ -28,6 +31,7 @@ public class UserController {
 
     // 유저 정보 가져오기
     @GetMapping()
+    @Operation(summary = "유저 정보 가져오기 API - 마이페이지")
     public ResponseEntity<?> getUserInfo(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
         try {
             UserResponse userResponse = userService.getUserInfo(customUserDetails);
@@ -39,6 +43,7 @@ public class UserController {
 
     // 회원 탈퇴
     @DeleteMapping("/delete-account")
+    @Operation(summary = "회원탈퇴 API")
     public ResponseEntity<?> deleteUser(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                         @RequestBody PasswordRequest passwordRequest) {
         try {
@@ -52,6 +57,7 @@ public class UserController {
     }
 
     @PutMapping("/{nickName}/update")
+    @Operation(summary = "유저 정보 수정 API - 마이페이지")
     public ResponseEntity<?> updateUser(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                    @RequestBody UserUpdateRequest userUpdateRequest,
                                         @PathVariable String nickName){
@@ -68,9 +74,10 @@ public class UserController {
     }
 
     @PostMapping("/check/name")
+    @Operation(summary = "닉네임 중복 검사 API, 토큰 X")
     public ResponseEntity<?> checkNickName(@RequestBody CheckRequest checkRequest){
         try {
-            String nickName = userService.checkName(checkRequest);
+            userService.checkName(checkRequest);
             return ResponseEntity.ok("사용 가능한 닉네임입니다!");
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("이미 존재하는 닉네임입니다.");
@@ -78,9 +85,10 @@ public class UserController {
     }
 
     @PostMapping("/check/Id")
+    @Operation(summary = "로그인 아이디 중복 검사 API, 토큰 X")
     public ResponseEntity<?> checkId(@RequestBody CheckRequest checkRequest){
         try {
-            String nickName = userService.checkId(checkRequest);
+            userService.checkId(checkRequest);
             return ResponseEntity.ok("사용 가능한 아이디입니다!");
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("이미 존재하는 ID입니다.");

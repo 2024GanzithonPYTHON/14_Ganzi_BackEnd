@@ -4,6 +4,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 
 @Getter
 @Setter
@@ -13,11 +15,11 @@ public class TaskResponse {
     private Long userId;
     private Long projectId;
     private String description;
-    private String start;
-    private String end;
+    private LocalDate start;
+    private LocalDate end;
     private Boolean attainment;
 
-    public TaskResponse(Long taskId, Long userId, Long projectId, String description, String start, String end, Boolean attainment) {
+    public TaskResponse(Long taskId, Long userId, Long projectId, String description, LocalDate start, LocalDate end, Boolean attainment) {
         this.taskId = taskId;
         this.userId = userId;
         this.projectId = projectId;
