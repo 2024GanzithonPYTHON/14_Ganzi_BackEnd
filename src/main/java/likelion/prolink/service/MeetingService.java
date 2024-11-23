@@ -34,8 +34,6 @@ import java.util.stream.Collectors;
 public class MeetingService {
     @Value("${openai.api.key}")
     private String apiKey;
-    @Value("${openai.api.system}")
-    private String roleMessage;
 
     private final GlobalSevice globalSevice;
     private final MeetingRepository meetingRepository;
@@ -51,6 +49,14 @@ public class MeetingService {
 
         userProjectRepository.findByUserAndProjectAndIsAcceptedTrue(user,project)
                 .orElseThrow(()-> new NotFoundException("해당 프로젝트에 속해 있지 않습니다"));
+
+        String roleMessage = "너는 글 내용을 요약해주는 어시스턴트야. "
+                + "너가 할 일은 글의 길이에 관계 없이 핵심 내용을 찾아서 명확하고 간결하게 요약해줘. "
+                + "3줄 이내로 짧은 문장이면, 요약의 형태로 표현하고 글의 의미를 간결하게 재구성해. 단순 복사하지 마."
+                + "긴 글이라면 주요 주제, 결론, 또는 핵심 논점을 5줄 이내로 요약하되, 원문의 흐름과 논리 구조를 유지해."
+                + "불필요한 세부사항은 생략하고 중요한 맥락만 포함하도록 해."
+                + "Temperature = 0.6, Top-p = 0.3, Tone = neutral, Writing-style = formal";
+
         String requestBody = "{"
                 + "\"model\": \"gpt-3.5-turbo\","
                 + "\"messages\": [{\"role\": \"system\", \"content\": \"" + roleMessage + "\"},"
@@ -91,36 +97,6 @@ public class MeetingService {
         );
     }
 
-    public ChatResponse summarizeContent(CustomUserDetails customUserDetails, ChatRequest chatRequest, Long projectId) {
-        User user = globalSevice.findUser(customUserDetails);
-        Project project = projectRepository.findById(projectId).orElseThrow(()-> new NotFoundException("해당 프로젝트를 찾을 수 없습니다."));
-
-        userProjectRepository.findByUserAndProjectAndIsAcceptedTrue(user,project)
-                .orElseThrow(()-> new NotFoundException("해당 프로젝트에 속해 있지 않습니다"));
-
-        String requestBody = "{"
-                + "\"model\": \"gpt-3.5-turbo\","
-                + "\"messages\": [{\"role\": \"system\", \"content\": \"" + roleMessage + "\"},"
-                + "               {\"role\": \"user\", \"content\": \"" + chatRequest.getContent() + "\"}],"
-                + "\"max_tokens\": 1500"
-                + "}";
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + apiKey);
-        headers.set("Content-Type", "application/json");
-
-        // HTTP 요청 엔티티 생성
-        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
-
-        // RestTemplate을 사용하여 POST 요청
-        RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<String> response = restTemplate.exchange(GPT_API_URL, HttpMethod.POST, entity, String.class);
-
-        return new ChatResponse(
-        user.getId(), project.getId(), chatRequest.getContent(),
-        extractGptMessageContent(response.getBody()), LocalDateTime.now());
-
-    }
     private String extractGptMessageContent(String responseBody) {
         try {
             ObjectMapper objectMapper = new ObjectMapper();

@@ -5,6 +5,8 @@ package likelion.prolink.config;
 import likelion.prolink.jwt.JwtFilter;
 import likelion.prolink.jwt.JwtUtil;
 import likelion.prolink.jwt.LoginFilter;
+import likelion.prolink.oAuth.JwtTokenProvider;
+import likelion.prolink.oAuth.RefreshTokenRepository;
 import likelion.prolink.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -31,6 +33,8 @@ public class SecurityConfig {
     private final AuthenticationConfiguration authenticationConfiguration;
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
@@ -43,21 +47,41 @@ public class SecurityConfig {
     }
 
     @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.addAllowedOriginPattern("https://14-ganzi-frontend.vercel.app"); // 특정 Origin
+        configuration.addAllowedOriginPattern("http://localhost:3000");
+        configuration.addAllowedOriginPattern("http://localhost:8080");
+        configuration.addAllowedOriginPattern("https://prolink123.store");// 클라이언트 도메인
+        configuration.addAllowedMethod("*");
+        configuration.addAllowedHeader("*");
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable)  // CSRF 보호 비활성화
+                .csrf(AbstractHttpConfigurer::disable) // CSRF 보호 비활성화
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // CORS 설정
                 .sessionManagement(
                         sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorizeRequests ->
                         authorizeRequests
                                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                                .requestMatchers("/api/auth/**", "/index.html").permitAll()// 로그인, 회원가입 허용
-                                .requestMatchers("/api/all/**").permitAll()
-                                .anyRequest().authenticated() // 나머지 요청은 인증 필요
-                );
-        http
-                .addFilterBefore(new JwtFilter(jwtUtil, userRepository), UsernamePasswordAuthenticationFilter.class) // JwtFilter는 모든 요청에서 JWT 검증
-                .addFilterBefore(new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil), UsernamePasswordAuthenticationFilter.class); // LoginFilter는 로그인 요청만 처리
+                                .requestMatchers("/api/auth/**", "/index.html").permitAll() // 로그인, 회원가입 허용
+                                .requestMatchers("/api/all/**", "/api/user/check/**").permitAll()
+                                .anyRequest().authenticated()) // 나머지 요청은 인증 필요
+                .addFilterBefore(new JwtFilter(jwtUtil, userRepository), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new LoginFilter(
+                                authenticationManager(authenticationConfiguration),
+                                jwtUtil,
+                                jwtTokenProvider,
+                                refreshTokenRepository),
+                        UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

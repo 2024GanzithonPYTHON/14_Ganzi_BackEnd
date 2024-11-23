@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import likelion.prolink.domain.CustomUserDetails;
 import likelion.prolink.domain.UserProject;
+import likelion.prolink.domain.dto.request.CheckRequest;
 import likelion.prolink.domain.dto.request.ProjectRequest;
 import likelion.prolink.domain.dto.request.RegisterRequest;
 import likelion.prolink.domain.dto.response.*;
@@ -18,6 +19,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.webjars.NotFoundException;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Slf4j
@@ -59,7 +62,7 @@ public class ProjectController {
 
     // 카테고리별 프로젝트 조회
     @GetMapping("/all/project/category")
-    @Operation(summary = "카테고리별 프로젝트 조회 API - 토큰 X")
+    @Operation(summary = "카테고리별 프로젝트 조회 API - 토큰 X, category = ? 형태로 값을 줘야함")
     public ResponseEntity<?> getCatProject(@RequestParam(name = "category") String cate){
         try {
             List<ProjectAllResponse> projectList = projectService.getCatProject(cate);
@@ -72,11 +75,25 @@ public class ProjectController {
     //프로젝트 상세 조회
     @GetMapping("/project/{projectId}")
     @Operation(summary = "프로젝트 상세 조회 API")
-    public ResponseEntity<?> getCatProjecct(@PathVariable Long projectId,
+    public ResponseEntity<?> getProject(@PathVariable Long projectId,
                                             @AuthenticationPrincipal CustomUserDetails customUserDetails){
         try {
             ProjectResponse project = projectService.getProject(customUserDetails, projectId);
             return ResponseEntity.ok(project);
+        }catch (NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+    //프로젝트 삭제
+    @DeleteMapping("/project/{projectId}")
+    @Operation(summary = "프로젝트 삭제 API")
+    public ResponseEntity<?> deleteProject(@PathVariable Long projectId,
+                                            @AuthenticationPrincipal CustomUserDetails customUserDetails){
+        try {
+            projectService.deleteProject(customUserDetails, projectId);
+            return ResponseEntity.ok("해당 프로젝트가 삭제되었습니다.");
         }catch (NotFoundException e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }catch (Exception e){
@@ -124,17 +141,18 @@ public class ProjectController {
     @PutMapping("/project/{projectId}/{nickName}/accept")
     @Operation(summary = "프로젝트 신청 수락 API - 멤버 관리")
     public ResponseEntity<?> acceptMember(@AuthenticationPrincipal CustomUserDetails customUserDetails,
-                                          @RequestParam(name = "nickName") String nickName,
+                                          @PathVariable String nickName,
                                           @PathVariable Long projectId){
         try {
-            UserProjectResponse userProjectResponse = projectService.acceptMember(customUserDetails, nickName, projectId);
+            String decodedNic = URLDecoder.decode(nickName, StandardCharsets.UTF_8);
+            UserProjectResponse userProjectResponse = projectService.acceptMember(customUserDetails, decodedNic, projectId);
             return ResponseEntity.ok(userProjectResponse);
         }catch (NotFoundException e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }catch (IllegalArgumentException e){
-            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body("권한이 없습니다.");
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(e.getMessage());
         }catch (RuntimeException e){
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("정원이 마감되었습니다.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
@@ -151,9 +169,9 @@ public class ProjectController {
         }catch (NotFoundException e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }catch (IllegalArgumentException e){
-            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body("권한이 없습니다.");
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(e.getMessage());
         }catch (RuntimeException e){
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("정원이 마감되었습니다.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
@@ -241,6 +259,22 @@ public class ProjectController {
         try {
             UserProjectResponse userProjectResponse = projectService.changeLeader(customUserDetails, projectId, nickName);
             return ResponseEntity.ok(userProjectResponse);
+        }catch (NotFoundException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+
+    }
+
+    @PutMapping("/project/{projectId}/success")
+    @Operation(summary = "프로젝트 완성 API")
+    public ResponseEntity<?> successProject(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                            @PathVariable Long projectId,
+                                            @RequestBody CheckRequest checkRequest){
+        try {
+            ProjectResponse projectResponse = projectService.successProject(customUserDetails, projectId, checkRequest);
+            return ResponseEntity.ok(projectResponse);
         }catch (NotFoundException e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }catch (Exception e){

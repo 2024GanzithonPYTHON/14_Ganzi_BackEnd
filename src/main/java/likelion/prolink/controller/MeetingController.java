@@ -33,7 +33,7 @@ public class MeetingController {
     // 회의록 저장 및 요약
     @PostMapping("/project/{projectId}/meeting")
     @Operation(summary = "회의록 작성/저장/요약 API - 회의록 관리")
-    public ResponseEntity<?>    createMeeting(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+    public ResponseEntity<?>  createMeeting(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                   @RequestBody MeetingRequest meetingRequest,
                   @PathVariable("projectId") Long projectId) {
         try {
@@ -44,19 +44,6 @@ public class MeetingController {
         }
     }
 
-    // GPT 요약
-    @PostMapping("/project/{projectId}/meeting/chat")
-    @Operation(summary = "ChatGPT 요약 API - 회의록 관리")
-    public ResponseEntity<?> summarizeMeeting(@AuthenticationPrincipal CustomUserDetails customUserDetails,
-                                              @RequestBody ChatRequest chatRequest,
-                                              @PathVariable("projectId") Long projectId) {
-        try {
-            ChatResponse chatResponse = meetingService.summarizeContent(customUserDetails, chatRequest, projectId);
-            return ResponseEntity.ok(chatResponse);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
-    }
 
     // 회의록 조회
     @GetMapping("/project/{projectId}/meeting")

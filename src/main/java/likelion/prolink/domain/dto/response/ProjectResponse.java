@@ -24,8 +24,9 @@ public class ProjectResponse {
     private String content;
     private LocalDate deadLine;
     private String link;
+    private String successLink;
 
-    public ProjectResponse(Long id, String nickName, Long userId, String projectName, String title, String grade, Boolean isRecruit, Boolean isActive, Long contributorNum, String category, String recruitmentPosition, String content, LocalDate deadLine, String link) {
+    public ProjectResponse(Long id, String nickName, Long userId, String projectName, String title, String grade, Boolean isRecruit, Boolean isActive, Long contributorNum, String category, String recruitmentPosition, String content, LocalDate deadLine, String link, String successLink) {
         this.id = id;
         this.nickName = nickName;
         this.userId = userId;
@@ -40,5 +41,6 @@ public class ProjectResponse {
         this.content = content;
         this.deadLine = deadLine;
         this.link = link;
+        this.successLink = successLink;
     }
 }

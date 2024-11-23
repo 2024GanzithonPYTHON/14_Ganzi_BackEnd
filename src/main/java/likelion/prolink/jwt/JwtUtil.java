@@ -1,5 +1,6 @@
 package likelion.prolink.jwt;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -27,24 +28,27 @@ public class JwtUtil {
     }
 
     public String getLoginId(String token) {
-        return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload().get("loginId", String.class);
-    }
-
-    public String getRole(String token) {
-        return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload().get("role", String.class);
+        try {
+            Claims claims = Jwts.parser()
+                    .setSigningKey(secretKey)
+                    .parseClaimsJws(token)
+                    .getBody();
+            return claims.get("loginId", String.class);
+        } catch (JwtException | IllegalArgumentException e) {
+            log.error("Invalid JWT token: {}", e.getMessage());
+            throw new RuntimeException("Invalid JWT token", e);
+        }
     }
 
     public Boolean isExpired(String token) {
         try {
             Date expiration = Jwts.parser()
                     .setSigningKey(secretKey)
-                    .build()
                     .parseClaimsJws(token)
                     .getBody()
                     .getExpiration();
             return expiration.before(new Date());
         } catch (JwtException | IllegalArgumentException e) {
-            // Log the issue and handle invalid tokens
             log.error("Token validation error: {}", e.getMessage());
             return true; // Treat as expired if token is invalid
         }
@@ -59,5 +63,4 @@ public class JwtUtil {
                 .signWith(secretKey, SignatureAlgorithm.HS256) // Use correct algorithm
                 .compact();
     }
-
 }
