@@ -5,6 +5,7 @@ import likelion.prolink.domain.CustomUserDetails;
 import likelion.prolink.domain.Project;
 import likelion.prolink.domain.User;
 import likelion.prolink.domain.UserProject;
+import likelion.prolink.domain.dto.request.CheckRequest;
 import likelion.prolink.domain.dto.request.ProjectRequest;
 import likelion.prolink.domain.dto.request.RegisterRequest;
 import likelion.prolink.domain.dto.response.*;
@@ -51,6 +52,7 @@ public class ProjectService {
         project.setCategory(projectRequest.getCategory());
         project.setIsActive(true);
         project.setIsRecruit(true);
+        project.setSuccessLink(null);
 
         projectRepository.save(project);
 
@@ -98,12 +100,30 @@ public class ProjectService {
     }
 
     @Transactional
+    public void deleteProject(CustomUserDetails customUserDetails, Long projectId){
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(()-> new NotFoundException("해당 프로젝트가 존재하지 않습니다"));
+
+        User user = globalSevice.findUser(customUserDetails);
+
+        if(project.getUser().getId() != user.getId()){
+            throw new IllegalArgumentException("삭제 권한이 없습니다.");
+        }
+
+        if(userProjectRepository.countByProjectAndIsAcceptedTrue(project) > 1){
+            throw new RuntimeException("이미 프로젝트에 참가한 유저가 있습니다.");
+        }
+
+        projectRepository.delete(project);
+    }
+
+    @Transactional
     public UserProjectResponse registerProject(CustomUserDetails customUserDetails, RegisterRequest registerRequest, Long projectId ){
         User user = globalSevice.findUser(customUserDetails);
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(()-> new NotFoundException("해당 프로젝트가 존재하지 않습니다"));
 
-        if(userProjectRepository.findByUser(user).isPresent()){
+        if(userProjectRepository.findByUserAndProject(user,project).isPresent()){
             throw new DuplicateRequestException("이미 프로젝트에 속해있습니다.");
         }
 
@@ -121,11 +141,11 @@ public class ProjectService {
         userProject.setContent(registerRequest.getContent());
         userProject.setIsAccepted(false);
 
-        userProjectRepository.save(userProject);
+        UserProject save = userProjectRepository.save(userProject);
 
-        return new UserProjectResponse(userProject.getUser().getNickName(),userProject.getProject().getId(),
-                userProject.getAuthority(), userProject.getCareerUrl(),
-                userProject.getContent(), userProject.getIsAccepted());
+        return new UserProjectResponse(save.getUser().getNickName(),save.getProject().getId(),
+                save.getAuthority(), save.getCareerUrl(),
+                save.getContent(), save.getIsAccepted());
     }
 
     public MemberManageResponse getManage(CustomUserDetails customUserDetails, Long projectId){
@@ -144,24 +164,22 @@ public class ProjectService {
     public UserProjectResponse acceptMember(CustomUserDetails customUserDetails, String nickName, Long projectId){
         User user = globalSevice.findUser(customUserDetails);
 
-        UserProject userProject = userProjectRepository.findByUser(user)
-                .orElseThrow(() -> new NotFoundException("해당 프로젝트에 존재하지 않습니다."));
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(()-> new NotFoundException("해당 프로젝트가 존재하지 않습니다"));
+
+        UserProject userProject = userProjectRepository.findByUserAndProject(user, project)
+                .orElseThrow(() -> new NotFoundException("해당 프로젝트에 존재하지 않습니다."));
+
 
         if(userProject.getAuthority().equals("팀원")){
             throw new IllegalArgumentException("수정 권한이 없습니다");
         }
 
-        if (getNum(projectId) == project.getContributorNum()){
-            throw new RuntimeException("정원 마감되었습니다.");
-        }
-
         User member = userRepository.findByNickName(nickName)
                 .orElseThrow(() -> new NotFoundException("해당 유저가 존재하지 않습니다."));
 
-        UserProject accept = userProjectRepository.findByUser(member)
+        UserProject accept = userProjectRepository.findByUserAndProject(member,project)
                 .orElseThrow(() -> new NotFoundException("해당 프로젝트에 존재하지 않습니다."));
 
         accept.setIsAccepted(true);
@@ -183,20 +201,24 @@ public class ProjectService {
     public void deleteMember(CustomUserDetails customUserDetails, String nickName, Long projectId){
         User user = globalSevice.findUser(customUserDetails);
 
-        UserProject userProject = userProjectRepository.findByUser(user)
-                .orElseThrow(() -> new NotFoundException("해당 프로젝트에 존재하지 않습니다."));
-
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(()-> new NotFoundException("해당 프로젝트가 존재하지 않습니다"));
+
+        UserProject userProject = userProjectRepository.findByUserAndProject(user, project)
+                .orElseThrow(() -> new NotFoundException("해당 프로젝트에 존재하지 않습니다."));
 
         if(userProject.getAuthority().equals("팀원")){
             throw new IllegalArgumentException("수정 권한이 없습니다");
         }
 
+        if(userProject.getAuthority().equals("팀장") && user.getNickName().equals(nickName)){
+            throw new IllegalArgumentException("팀장은 나갈 수 없습니다. 다른 팀장을 지정해주세요.");
+        }
+
         User member = userRepository.findByNickName(nickName)
                 .orElseThrow(() -> new NotFoundException("해당 유저가 존재하지 않습니다."));
 
-        UserProject accept = userProjectRepository.findByUser(member)
+        UserProject accept = userProjectRepository.findByUserAndProject(member,project)
                 .orElseThrow(() -> new NotFoundException("해당 프로젝트에 존재하지 않습니다."));
 
         userProjectRepository.delete(accept);
@@ -273,6 +295,32 @@ public class ProjectService {
                 newLeaderProject.getContent(), newLeaderProject.getIsAccepted());
     }
 
+    public ProjectResponse successProject(CustomUserDetails customUserDetails, Long projectId, CheckRequest checkRequest){
+        User user = globalSevice.findUser(customUserDetails);
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(()-> new NotFoundException("해당 프로젝트가 존재하지 않습니다"));
+
+        UserProject userProject = userProjectRepository.findByUserAndProject(user,project)
+                .orElseThrow(()-> new NotFoundException("해당 프로젝트에 속해 있지 않습니다"));
+
+        if(!userProject.getAuthority().equals("팀장")){
+            throw new IllegalArgumentException("프로젝트 상태 변경 권한이 없습니다.");
+        }
+
+        project.setSuccessLink(checkRequest.getSentence());
+        project.setIsActive(false);
+        Project updatedProject = projectRepository.save(project);
+
+        userProjectRepository.findByProject(userProject.getProject()).stream()
+                .filter(up -> up.getIsAccepted())
+                .forEach(up -> {
+                    up.getUser().setPoint(up.getUser().getPoint() + 10);
+                    userRepository.save(up.getUser());
+                });
+
+        return projectResponse(updatedProject);
+    }
+
 
     // 현재 참가한 참여자 수 반환
     public Long getNum(Long projectId){
@@ -299,7 +347,8 @@ public class ProjectService {
                 project.getRecruitmentPosition(),
                 project.getContent(),
                 project.getDeadLine(),
-                project.getLink()
+                project.getLink(),
+                project.getSuccessLink()
         );
 
         return projectResponse;

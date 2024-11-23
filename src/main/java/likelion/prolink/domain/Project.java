@@ -11,6 +11,7 @@ import lombok.Setter;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.List;
 
 
 @Entity @Getter @Setter
@@ -33,6 +34,7 @@ public class Project {
     private String content;
     private String link;
     private LocalDate deadLine;
+    private String successLink;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -40,4 +42,14 @@ public class Project {
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Meeting> meetings;
+
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Task> tasks;
+
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserProject> userProjects;
+
 }

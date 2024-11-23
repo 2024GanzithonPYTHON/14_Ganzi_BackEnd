@@ -88,21 +88,9 @@ public class TaskService {
 
         if (!task.getAttainment()) {
             task.setAttainment(true);
-            userProjectRepository.findByProject(userProject.getProject()).stream()
-                    .filter(up -> up.getIsAccepted())
-                    .forEach(up -> {
-                        up.getUser().setPoint(up.getUser().getPoint() + 1);
-                        userRepository.save(up.getUser());
-                    });
             updatedTask = taskRepository.save(task);
         } else {
             task.setAttainment(false);
-            userProjectRepository.findByProject(userProject.getProject()).stream()
-                    .filter(up -> up.getIsAccepted())
-                    .forEach(up -> {
-                        up.getUser().setPoint(up.getUser().getPoint() - 1);
-                        userRepository.save(up.getUser());
-                    });
             updatedTask = taskRepository.save(task);
         }
 
